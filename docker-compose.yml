@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: intern@2020
+      POSTGRES_DB: InternshipTaskOne
+    ports:
+      - "5436:5432"
+
+  app:
+    image: jumongweb/internship-task-one:latest
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/InternshipTaskOne
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: intern@2020
+    depends_on:
+      - postgres
+    deploy:
+#      replicas: 3  # Number of instances you want
+      resources:
+        limits:
+          memory: 128M
+    ports:
+       - "2020:2020"
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5050/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9091:9090"
+
+networks:
+  app-network:
+    driver: bridge
+
