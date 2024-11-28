@@ -1,0 +1,103 @@
+name: CI/CD for cloud test
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up JDK
+        uses: actions/setup-java@v2
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Restore Maven Package
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('/*.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        run: mvn clean install
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker Image
+        run: docker build -t jumongweb/InternshipTaskOne:latest .
+
+      - name: Push Docker Image to Docker Hub
+        run: docker push jumongweb/InternshipTaskOne:latest
+
+#      - name: Deploy to AWS EC2
+#        env:
+#          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+#          INSTANCE_IP: ${{ secrets.PUBLIC_IPV4 }}
+#        run: |
+#          echo "$PRIVATE_KEY" > cloud_one_key.pem
+#          chmod 600 cloud_one_key.pem
+#          mkdir -p ~/.ssh
+#          ssh-keyscan -H $INSTANCE_IP >> ~/.ssh/known_hosts
+#          ssh -i cloud_one_key.pem ubuntu@$INSTANCE_IP << 'EOF'
+#
+#          # Install Docker if not already installed
+#          if ! command -v docker &> /dev/null; then
+#            sudo apt update
+#            sudo apt install -y docker.io
+#            sudo systemctl start docker
+#            sudo systemctl enable docker
+#          fi
+#
+#
+#          # Create Docker network if it doesn't exist
+#          if ! docker network ls | grep -q cloud_network; then
+#            sudo docker network create cloud_network
+#          fi
+#
+#          # Stop and remove any existing PostgreSQL container
+#          if [ "$(docker ps -aq -f name=cloud_db_postgres)" ]; then
+#            sudo docker stop cloud_db_postgres
+#            sudo docker rm cloud_db_postgres
+#          fi
+#
+#          # Pull and run PostgreSQL container without port binding
+#          sudo docker run -d --name cloud_db_postgres \
+#            --network cloud_network \
+#            -e POSTGRES_DB=cloud_db \
+#            -e POSTGRES_USER=dev_user \
+#            -e POSTGRES_PASSWORD=jumong \
+#            postgres:latest
+#
+#          # Stop and remove any existing application container
+#          if [ "$(docker ps -aq -f name=cloud_test)" ]; then
+#            sudo docker stop cloud_test
+#            sudo docker rm cloud_test
+#          fi
+#
+#          # Pull the latest application image
+#          sudo docker pull jumongweb/cloud_test:latest
+#
+#          # Run the application container, connecting to the PostgreSQL container
+#          sudo docker run -d -p 5050:5050 --name cloud_test \
+#            --network cloud_network \
+#            --memory 250m --cpus "0.5" \
+#            -e SPRING_DATASOURCE_URL=jdbc:postgresql://cloud_db_postgres:5432/cloud_db \
+#            -e SPRING_DATASOURCE_USERNAME=dev_user \
+#            -e SPRING_DATASOURCE_PASSWORD=jumong \
+#            jumongweb/cloud_test:latest
+#          EOF
+
