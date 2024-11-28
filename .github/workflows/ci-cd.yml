@@ -38,10 +38,10 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build Docker Image
-        run: docker build -t jumongweb/InternshipTaskOne:latest .
+        run: docker build -t jumongweb/internship-task-one:latest .
 
       - name: Push Docker Image to Docker Hub
-        run: docker push jumongweb/InternshipTaskOne:latest
+        run: docker push jumongweb/internship-task-one:latest
 
 #      - name: Deploy to AWS EC2
 #        env:

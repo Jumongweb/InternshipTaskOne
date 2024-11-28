@@ -3,7 +3,7 @@ COPY . .
 RUN mvn -B clean package -DskipTests
 
 FROM openjdk:17
-COPY --from=build target/*.jar InternshipTaskOne.jar
+COPY --from=build target/*.jar internship-task-one.jar
 EXPOSE 2020
 
-ENTRYPOINT ["java", "-jar", "-Dserver.port=2020", "InternshipTaskOne.jar"]
+ENTRYPOINT ["java", "-jar", "-Dserver.port=2020", "internship-task-one.jar"]
