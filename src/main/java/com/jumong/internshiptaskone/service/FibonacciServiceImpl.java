@@ -23,9 +23,9 @@ public class FibonacciServiceImpl implements FibonacciService{
             }
         }
 
-        for (int i = 0; i < 9000000; i++) {
-            fibonacciNumbers.add(num1);
-        }
+//        for (int i = 0; i < 9000000; i++) {
+//            fibonacciNumbers.add(num1);
+//        }
 
         return fibonacciNumbers;
     }

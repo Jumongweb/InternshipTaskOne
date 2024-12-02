@@ -20,5 +20,6 @@ public class FibonacciController {
     public List<Long> getFibonacci(@PathVariable int n) {
         return fibonacciService.generateFibonacci(n);
     }
+
 }
 

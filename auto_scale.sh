@@ -1,51 +1,131 @@
 #!/bin/bash
+set -e
 
-# Set the service name from docker-compose.yml
-SERVICE_NAME="internshiptaskone-app"
-CPU_THRESHOLD=90
-MEMORY_THRESHOLD=85
-COOL_DOWN_PERIOD=300  # 5 minutes
+SERVICE_NAME="app"
+MEMORY_LIMIT_MB=128
+SCALE_UP_THRESHOLD=123
+SCALE_DOWN_THRESHOLD=100
+MAX_REPLICAS=5
+MIN_REPLICAS=1
 
-# File to store the last scale time
-LAST_SCALE_FILE="/tmp/last_scale_time.txt"
-if [[ ! -f $LAST_SCALE_FILE ]]; then
-    echo "0" > $LAST_SCALE_FILE
-fi
-LAST_SCALE_TIME=$(cat $LAST_SCALE_FILE)
-CURRENT_TIME=$(date +%s)
 
-# Get average CPU and memory usage
-CPU_USAGE=$(docker stats --no-stream --format "{{.CPUPerc}}" internshiptaskone-app-1 | sed 's/%//' | awk '{s+=$1} END {print s/NR}')
-MEMORY_USAGE=$(docker stats --no-stream --format "{{.MemPerc}}" internshiptaskone-app-1 | sed 's/%//' | awk '{s+=$1} END {print s/NR}')
+export COMPOSE_HTTP_TIMEOUT=300
 
-scale_container() {
-    echo "$(date): Scaling up container..." >> autoscale.log
-    docker-compose up --scale $SERVICE_NAME=2 -d
-    echo "$CURRENT_TIME" > $LAST_SCALE_FILE
+
+cd "$(dirname "$0")" || exit 1
+
+
+scaling_in_progress=false
+
+
+get_memory_usage() {
+  docker stats --no-stream --format "{{.MemUsage}}" $(docker-compose ps -q $SERVICE_NAME) | awk -F '[ /]+' '{gsub(/[a-zA-Z]/, "", $1); print $1}' | tr -d '\n'
 }
 
-scale_down_container() {
-    echo "$(date): Scaling down container..." >> autoscale.log
-    docker-compose up --scale $SERVICE_NAME=1 -d
-    echo "$CURRENT_TIME" > $LAST_SCALE_FILE
+get_current_scale() {
+  docker-compose ps -q $SERVICE_NAME | wc -l
 }
 
-# Check if within cool-down period
-if (( CURRENT_TIME - LAST_SCALE_TIME < COOL_DOWN_PERIOD )); then
-    echo "$(date): In cool-down period. No scaling performed." >> autoscale.log
-    exit 0
-fi
+container_exists() {
+  docker ps -a --format "{{.ID}}" | grep -q "$1"
+}
 
-# Perform scaling logic
-if (( $(echo "$CPU_USAGE > $CPU_THRESHOLD" | bc -l) )); then
-    echo "CPU usage is above threshold ($CPU_USAGE%), scaling container."
-    scale_container
-elif (( $(echo "$MEMORY_USAGE > $MEMORY_THRESHOLD" | bc -l) )); then
-    echo "Memory usage is above threshold ($MEMORY_USAGE%), scaling container."
-    scale_container
-elif (( $(echo "$CPU_USAGE < 70" | bc -l) )) && (( $(echo "$MEMORY_USAGE < 70" | bc -l) )); then
-    echo "Resource usage is low, scaling down."
-    scale_down_container
-else
-    echo "$(date): Resource usage normal (CPU: $CPU_USAGE%, Memory: $MEMORY_USAGE%). No scaling needed." >> autoscale.log
-fi
+scale_service() {
+  current_scale=$(get_current_scale)
+  new_scale=$((current_scale + 1))
+
+
+  if [ "$current_scale" -lt "$MAX_REPLICAS" ]; then
+    echo "[$(date)] Scaling service $SERVICE_NAME to $new_scale replicas"
+    if ! docker-compose up --scale "$SERVICE_NAME=$new_scale" -d; then
+      echo "[$(date)] Failed to scale service $SERVICE_NAME to $new_scale replicas"
+    else
+      scaling_in_progress=true
+    fi
+  else
+    echo "[$(date)] Max replicas reached ($MAX_REPLICAS). Cannot scale further."
+  fi
+}
+
+
+scale_down_service() {
+  current_scale=$(get_current_scale)
+  new_scale=$((current_scale - 1))
+
+
+  if [ "$current_scale" -gt "$MIN_REPLICAS" ]; then
+    echo "[$(date)] Scaling service $SERVICE_NAME down to $new_scale replicas"
+    if docker-compose up --scale "$SERVICE_NAME=$new_scale" -d; then
+
+      container_id=$(docker-compose ps -q $SERVICE_NAME | tail -n 1)
+      if container_exists "$container_id"; then
+        docker rm -f "$container_id"
+      else
+        echo "[$(date)] Container $container_id does not exist, skipping removal."
+      fi
+    else
+      echo "[$(date)] Failed to scale service $SERVICE_NAME down to $new_scale replicas"
+    fi
+  else
+    echo "[$(date)] Only one replica running. Cannot scale down further."
+  fi
+}
+
+
+send_requests() {
+  URL="http://localhost:2020/fibonacci/90000"
+  COUNT=90000
+
+  echo "[$(date)] Sending $COUNT concurrent requests to $URL..."
+
+  for i in $(seq 1 $COUNT); do
+    curl -s "$URL" &
+  done
+
+  wait
+  echo "[$(date)] All requests sent."
+}
+
+
+trap "echo 'Stopping script...'; exit" SIGINT SIGTERM
+
+
+while true; do
+
+  memory_usage=$(get_memory_usage | sed 's/[^0-9.]//g' | awk '{print int($1)}')
+
+
+  if [[ ! "$memory_usage" =~ ^[0-9]+$ ]]; then
+    echo "[$(date)] Invalid memory usage: $memory_usage. Skipping this check."
+    continue
+  fi
+
+
+  current_scale=$(get_current_scale)
+
+  echo "[$(date)] Current memory usage: $memory_usage MB. Current replicas: $current_scale"
+
+
+  if [ "$memory_usage" -ge "$SCALE_UP_THRESHOLD" ] && [ "$scaling_in_progress" = false ]; then
+    echo "[$(date)] Memory usage ($memory_usage MB) exceeded threshold ($SCALE_UP_THRESHOLD MB). Scaling service..."
+    scale_service
+
+
+  elif [ "$memory_usage" -lt "$SCALE_DOWN_THRESHOLD" ] && [ "$current_scale" -gt "$MIN_REPLICAS" ]; then
+    echo "[$(date)] Memory usage ($memory_usage MB) is below threshold for scaling down. Scaling down service..."
+    scale_down_service
+
+  else
+    echo "[$(date)] Memory usage is under control ($memory_usage MB)."
+  fi
+
+
+  if [ "$scaling_in_progress" = true ]; then
+    echo "[$(date)] Waiting for the service to stabilize after scaling..."
+    sleep 60
+    scaling_in_progress=false
+  else
+
+    sleep 30
+  fi
+done
