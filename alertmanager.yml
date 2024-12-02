@@ -1,0 +1,10 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "scale_script"
+
+receivers:
+  - name: "scale_script"
+    webhook_configs:
+      - url: "http://localhost:5000/scale"

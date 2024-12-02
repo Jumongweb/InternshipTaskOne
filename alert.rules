@@ -1,0 +1,11 @@
+groups:
+- name: scaling
+  rules:
+  - alert: HighCPUUsage
+    expr: avg(container_cpu_usage_seconds_total) > 0.8
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High CPU usage detected"
+      description: "Container {{ $labels.container }} is using {{ $value }} CPU."

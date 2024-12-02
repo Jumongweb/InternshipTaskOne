@@ -7,10 +7,11 @@ services:
       POSTGRES_DB: InternshipTaskOne
     ports:
       - "5436:5432"
+    networks:
+      - app-network
 
   app:
     image: jumongweb/internship-task-one:latest
-
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/InternshipTaskOne
       SPRING_DATASOURCE_USERNAME: postgres
@@ -18,25 +19,105 @@ services:
     depends_on:
       - postgres
     deploy:
-#      replicas: 3  # Number of instances you want
       resources:
         limits:
           memory: 128M
-    ports:
-       - "2020:2020"
 
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:5050/actuator/health" ]
+      test: ["CMD", "curl", "-f", "http://localhost:2020/actuator/health"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
+    ports:
+      - "2020:2020"
+    networks:
+      - app-network
 
   prometheus:
     image: prom/prometheus
+    container_name: internshiptaskone-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9091:9090"
+    networks:
+      - app-network
+
+  alertmanager:
+    image: prom/alertmanager
+    container_name: internshiptaskone-alertmanager
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    ports:
+      - "9093:9093"
+    networks:
+      - app-network
 
 networks:
   app-network:
     driver: bridge
 
+
+#services:
+#  postgres:
+#    image: postgres:17
+#    environment:
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: intern@2020
+#      POSTGRES_DB: InternshipTaskOne
+#    ports:
+#      - "5436:5432"
+#
+#  app:
+#    image: jumongweb/internship-task-one:latest
+#
+#    environment:
+#      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/InternshipTaskOne
+#      SPRING_DATASOURCE_USERNAME: postgres
+#      SPRING_DATASOURCE_PASSWORD: intern@2020
+#    depends_on:
+#      - postgres
+#    deploy:
+##      replicas: 3  # Number of instances you want
+#      resources:
+#        limits:
+#          memory: 128M
+#
+#    ports:
+#       - "2020:2020"
+#
+##    healthcheck:
+##      test: [ "CMD", "curl", "-f", "http://localhost:2020/actuator/health" ]
+##      interval: 30s
+##      timeout: 10s
+##      retries: 5
+#
+#  prometheus:
+#    image: prom/prometheus
+#    container_name: internshiptaskone-prometheus
+#    volumes:
+#      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+#    ports:
+#      - "9091:9090"
+#
+#  alertmanager:
+#    image: prom/alertmanager
+#    container_name: internshiptaskone-alertmanager
+#    volumes:
+#      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+#    ports:
+#      - "9093:9093"
+#
+#
+##  alertmanager:
+##    image: prom/alertmanager
+##    ports:
+##      - "9093:9093"
+##    volumes:
+##      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+#
+#
+#networks:
+#  app-network:
+#    driver: bridge
+#
