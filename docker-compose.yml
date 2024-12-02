@@ -23,11 +23,6 @@ services:
         limits:
           memory: 128M
 
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:2020/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
     ports:
       - "2020:2020"
     networks:
