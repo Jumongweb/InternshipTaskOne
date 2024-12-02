@@ -24,7 +24,7 @@ services:
           memory: 128M
 
     ports:
-      - "2020:2020"
+      - "2021:2020"
     networks:
       - app-network
 
