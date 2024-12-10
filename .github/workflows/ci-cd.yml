@@ -64,8 +64,8 @@ jobs:
 
 
           # Create Docker network if it doesn't exist
-          if ! docker network ls | grep -q cloud_network; then
-            sudo docker network create cloud_network
+          if ! docker network ls | grep -q internship_network; then
+            sudo docker network create internship_network
           fi
 
           # Stop and remove any existing PostgreSQL container
@@ -77,9 +77,9 @@ jobs:
           # Pull and run PostgreSQL container without port binding
           sudo docker run -d --name internship_db_postgres \
             --network internship_network \
-            -e POSTGRES_DB=internship_db \
-            -e POSTGRES_USER=dev_user \
-            -e POSTGRES_PASSWORD=jumong \
+            -e POSTGRES_DB=InternshipTaskOne \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=Lt*08161554409 \
             postgres:latest
 
           # Stop and remove any existing application container
