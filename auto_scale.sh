@@ -8,15 +8,9 @@ SCALE_DOWN_THRESHOLD=100
 MAX_REPLICAS=5
 MIN_REPLICAS=1
 
-
 export COMPOSE_HTTP_TIMEOUT=300
-
-
 cd "$(dirname "$0")" || exit 1
-
-
 scaling_in_progress=false
-
 
 get_memory_usage() {
   docker stats --no-stream --format "{{.MemUsage}}" $(docker-compose ps -q $SERVICE_NAME) | awk -F '[ /]+' '{gsub(/[a-zA-Z]/, "", $1); print $1}' | tr -d '\n'
@@ -33,7 +27,6 @@ container_exists() {
 scale_service() {
   current_scale=$(get_current_scale)
   new_scale=$((current_scale + 1))
-
 
   if [ "$current_scale" -lt "$MAX_REPLICAS" ]; then
     echo "[$(date)] Scaling service $SERVICE_NAME to $new_scale replicas"
@@ -100,16 +93,12 @@ while true; do
     continue
   fi
 
-
   current_scale=$(get_current_scale)
-
   echo "[$(date)] Current memory usage: $memory_usage MB. Current replicas: $current_scale"
-
 
   if [ "$memory_usage" -ge "$SCALE_UP_THRESHOLD" ] && [ "$scaling_in_progress" = false ]; then
     echo "[$(date)] Memory usage ($memory_usage MB) exceeded threshold ($SCALE_UP_THRESHOLD MB). Scaling service..."
     scale_service
-
 
   elif [ "$memory_usage" -lt "$SCALE_DOWN_THRESHOLD" ] && [ "$current_scale" -gt "$MIN_REPLICAS" ]; then
     echo "[$(date)] Memory usage ($memory_usage MB) is below threshold for scaling down. Scaling down service..."
@@ -118,7 +107,6 @@ while true; do
   else
     echo "[$(date)] Memory usage is under control ($memory_usage MB)."
   fi
-
 
   if [ "$scaling_in_progress" = true ]; then
     echo "[$(date)] Waiting for the service to stabilize after scaling..."
